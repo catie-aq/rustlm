@@ -1,0 +1,24 @@
+[package]
+name = "rustlm"
+version = "0.1.0"
+authors = ["Boris Albar <b.albar@catie.fr"]
+edition = "2018"
+
+[lib]
+name = "rustlm"
+crate-type = ["cdylib"]
+
+[dependencies]
+numpy = "0.11.0"
+ndarray = { version = "0.13.1", features = ["blas"] }
+pyo3 = { version = "0.11.1", features = ["extension-module"] }
+radix_trie = { version = "0.2.0" }
+
+[features]
+default = ["fastexp"]
+fastexp = []
+
+[profile.release]
+lto=true
+codegen-units=1
+panic="abort"
