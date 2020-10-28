@@ -1,6 +1,6 @@
 [package]
 name = "rustlm"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Boris Albar <b.albar@catie.fr"]
 edition = "2018"
 
@@ -10,9 +10,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 numpy = "0.11.0"
-ndarray = { version = "0.13.1", features = ["blas"] }
 pyo3 = { version = "0.11.1", features = ["extension-module"] }
+ndarray = { version = "0.13.1", features = ["blas", "rayon"] }
+rayon = "1.5.0"
 radix_trie = { version = "0.2.0" }
+tokenizers = { path = "/home/balbar/Library/tokenizers/tokenizers" }
+onnxruntime-sys = {version = "0.0.10", path = "/home/balbar/Library/onnxruntime-rs/onnxruntime-sys"}
+onnxruntime = {version = "0.0.10", path = "/home/balbar/Library/onnxruntime-rs/onnxruntime"}
+tracing = "0.1"
+tracing-subscriber = "0.2"
 
 [features]
 default = ["fastexp"]
