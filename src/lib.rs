@@ -19,6 +19,7 @@ mod bsearch;
 mod tree;
 mod vec2d;
 mod inferer;
+mod fast_math;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SearchError {
@@ -100,8 +101,8 @@ impl GPT2BeamSearch {
     ///         intensive. Must be at least 1.
     ///     cutoff_prob (float): Ignore any entries in `network_output` below this value. Must
     ///         be at least 0.0, and less than ``1/len(alphabet)``.
-    ///     alpha (float): The weight of the language model
-    ///     beta (float): A coefficient that penalize length
+    ///     alpha (float): Language model weight
+    ///     beta (float): Word insertion weight
     ///     blank_id (usize): The index of the blank (epsilon) character in the array
     ///     space_id (usize): The index of the space character in the array
     ///

@@ -3,6 +3,7 @@ use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
 use crate::inferer::{GPT2Inferer};
+use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 
 /// A node in the labelling tree to build from.
 #[derive(Clone, Debug)]
@@ -134,10 +135,19 @@ pub fn beam_search<D: Data<Elem = f32>>(
                             .unwrap_or_else(|| suffix_tree.add_node(node, label, idx));
 
                         let mut lm_prob = 1.0; // integrate language model probability here after spaces
-                        /*match inferer {
-                            None => println!("{} / {} failed!", dividend, divisor),
-                            Some(quotient) => {
-                                println!("{} / {} = {}", dividend, divisor, quotient)
+
+                        /*match infer_model {
+                            None => (),
+                            Some(model) => {
+                                // reconstruct the sentence
+                                let mut sequence = String::new();
+
+                                if node != ROOT_NODE {
+                                    for (label, &time) in suffix_tree.iter_from(node) {
+                                        sequence.push_str(&alphabet[label]);
+                                    }
+                                }
+                                lm_prob = (model.infer(vec![sequence.chars().rev().collect::<String>()])[0] * alpha).exp()
                             },
                         }*/
 
@@ -185,6 +195,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
         } // end SearchPoint
 
         beam = prefix_tree.values().cloned().collect::<Vec<_>>();
+
         let mut has_nans = false;
         beam.sort_unstable_by(|a, b| {
             (b.probability())

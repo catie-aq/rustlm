@@ -28,3 +28,6 @@ fastexp = []
 lto=true
 codegen-units=1
 panic="abort"
+
+[build]
+rustflags = ["-Ctarget-cpu=native"]
