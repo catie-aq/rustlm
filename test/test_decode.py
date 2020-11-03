@@ -20,7 +20,7 @@ class Test1DBeamSearch(TestCase):
     def test_gpt2_beam_search(self):
         """ gpt based beam search test with the canonical alphabet """
         gpt2_beam_search = GPT2BeamSearch("../../test_rust_inference2/french_tokenizer-vocab.json", "../../test_rust_inference2/french_tokenizer-merges.txt", "../../test_rust_inference2/model.onnx", 1, "<pad>")
-        seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 2.0, 1.5, len(self.alphabet), self.alphabet.index(" "))
+        seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 2.0, 0.0, len(self.alphabet), self.alphabet.index(" "))
         print(seqs)
         print(paths)
         print(prbs)
@@ -28,7 +28,7 @@ class Test1DBeamSearch(TestCase):
     def test_nolm_beam_search(self):
         """ simple beam search test with the canonical alphabet """
         nolm_beam_search = NoLMBeamSearch()
-        seqs, paths, prbs = nolm_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 2.0, 1.5, len(self.alphabet), self.alphabet.index(" "))
+        seqs, paths, prbs = nolm_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 2.0, 0.0, len(self.alphabet), self.alphabet.index(" "))
         print(seqs)
         print(paths)
         print(prbs)

@@ -16,14 +16,16 @@ struct SearchPoint {
     /// The cumulative probability of the labelling so far for paths with one or more ending
     /// blank labels.
     blank_prob: f32,
+    /// A space counter for weighting prefix word length
+    space_counter: f32
 }
 
 impl SearchPoint {
     /// The total probability of the labelling so far.
     ///
     /// This sums the probabilities of the paths with and without leading blank labels.
-    fn probability(&self) -> f32 {
-        self.label_prob + self.blank_prob
+    fn probability(&self, beta: f32) -> f32 {
+        (self.label_prob + self.blank_prob) * self.space_counter.powf(beta)
     }
 }
 
@@ -52,6 +54,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
         node: ROOT_NODE,
         label_prob: 0.0,
         blank_prob: 1.0,
+        space_counter: 0.0,
     };
 
     // initial state
@@ -68,6 +71,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
             node,
             label_prob,
             blank_prob,
+            space_counter,
         } in &beam
         {
 
@@ -89,6 +93,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
                             node,
                             label_prob: 0.0,
                             blank_prob: (label_prob + blank_prob) * pr,
+                            space_counter: space_counter,
                         });
                     }
                 } else {
@@ -104,6 +109,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
                                 node,
                                 label_prob: label_prob * pr,
                                 blank_prob: 0.0,
+                                space_counter: space_counter,
                             });
                         }
 
@@ -124,6 +130,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
                                     node: idx,
                                     label_prob: blank_prob * pr,
                                     blank_prob: 0.0,
+                                    space_counter: space_counter,
                                 });
                             }
                         }
@@ -138,7 +145,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
 
                         /*match infer_model {
                             None => (),
-                            Some(model) => {
+                            Some(ref mut model) => {
                                 // reconstruct the sentence
                                 let mut sequence = String::new();
 
@@ -147,17 +154,20 @@ pub fn beam_search<D: Data<Elem = f32>>(
                                         sequence.push_str(&alphabet[label]);
                                     }
                                 }
-                                lm_prob = (model.infer(vec![sequence.chars().rev().collect::<String>()])[0] * alpha).exp()
+                                lm_prob = model.infer(vec![sequence.chars().rev().collect::<String>()]).unwrap()[0];
+                                lm_prob = (lm_prob * alpha).exp();
                             },
                         }*/
 
                         if let Some(x) = prefix_tree.get_mut(&new_node_idx) {
                             (*x).label_prob += (label_prob + blank_prob) * pr * lm_prob;
+                            (*x).space_counter += 1.0;
                         } else {
                             prefix_tree.insert(new_node_idx, SearchPoint {
                                 node: new_node_idx,
                                 label_prob: (label_prob + blank_prob) * pr * lm_prob,
                                 blank_prob: 0.0,
+                                space_counter: space_counter + 1.0,
                             });
                         }
                     } else {
@@ -174,6 +184,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
                                 node: new_node_idx,
                                 label_prob: (label_prob + blank_prob) * pr,
                                 blank_prob: 0.0,
+                                space_counter: space_counter,
                             });
                         }
                     }
@@ -188,6 +199,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
                             node: new_node_idx,
                             label_prob: label_prob * pr,
                             blank_prob: (label_prob + blank_prob) * pr,
+                            space_counter: space_counter,
                         });
                     }
                 }
@@ -198,8 +210,8 @@ pub fn beam_search<D: Data<Elem = f32>>(
 
         let mut has_nans = false;
         beam.sort_unstable_by(|a, b| {
-            (b.probability())
-                .partial_cmp(&(a.probability()))
+            (b.probability(beta))
+                .partial_cmp(&(a.probability(beta)))
                 .unwrap_or_else(|| {
                     has_nans = true;
                     std::cmp::Ordering::Equal // don't really care
@@ -235,6 +247,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
             node,
             label_prob,
             blank_prob,
+            space_counter,
         } in &beam
         {
 
