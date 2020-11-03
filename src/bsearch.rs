@@ -2,7 +2,7 @@ use super::SearchError;
 use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
-use crate::inferer::GPT2Inferer;
+use crate::inferer::{GPT2Inferer};
 
 /// A node in the labelling tree to build from.
 #[derive(Clone, Debug)]

@@ -14,8 +14,6 @@ use pyo3::exceptions::{RuntimeError, ValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PySequence, PyUnicode};
 use std::fmt;
-//use pyo3::wrap_pyfunction;
-//use std::sync::{Arc, Mutex};
 
 mod bsearch;
 mod tree;
@@ -57,7 +55,29 @@ struct GPT2BeamSearch {
 
 #[pymethods]
 impl GPT2BeamSearch {
-    /// Perform a CTC beam search decode on an RNN output.
+
+    /// Build a GPT2BeamSearch
+    ///
+    /// Args:
+    ///     model_path (String): Path to the onnx model.
+    ///     vocab_path (String): Path to the tokenizer vocab file.
+    ///     merge_path (String): Path to the tokenizer merge file.
+    ///     space_id (u32): The index of the space character
+    ///     pad_token (String): The token for padding
+    #[new]
+    fn new(model_path: &PyUnicode, vocab_path: &PyUnicode, merge_path: &PyUnicode, space_id: u32, pad_token: &PyUnicode) -> Self {
+
+        let model_path_str = model_path.to_string().unwrap().into_owned();
+        let vocab_path_str = vocab_path.to_string().unwrap().into_owned();
+        let merge_path_str = merge_path.to_string().unwrap().into_owned();
+        let pad_token_str = pad_token.to_string().unwrap().into_owned();
+
+        GPT2BeamSearch {
+            infer_model: inferer::GPT2Inferer::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
+        }
+    }
+
+    /// Perform a CTC beam search decode on an RNN output using a GPT2 based LM.
     ///
     /// This function does a beam search variant of the prefix search decoding mentioned (and described
     /// in fairly vague terms) in the original CTC paper (Graves et al, 2006, section 3.2).
@@ -75,29 +95,78 @@ impl GPT2BeamSearch {
     ///     network_output (numpy.ndarray): The 2D array output of the neural network.
     ///     alphabet (sequence): The labels (including the blank label, which must be first) in the
     ///         order given on the inner axis of `network_output`.
-    ///     beam_size (int): How many search points should be kept at each step. Higher numbers are
+    ///     beam_width (usize): How many search points should be kept at each step. Higher numbers are
     ///         less likely to discard the true labelling, but also make it slower and more memory
     ///         intensive. Must be at least 1.
-    ///     beam_cut_threshold (float): Ignore any entries in `network_output` below this value. Must
+    ///     cutoff_prob (float): Ignore any entries in `network_output` below this value. Must
     ///         be at least 0.0, and less than ``1/len(alphabet)``.
+    ///     alpha (float): The weight of the language model
+    ///     beta (float): A coefficient that penalize length
+    ///     blank_id (usize): The index of the blank (epsilon) character in the array
+    ///     space_id (usize): The index of the space character in the array
     ///
     /// Returns:
-    ///     tuple of (str, numpy.ndarray): The decoded sequence and an array of the final
-    ///         timepoints of each label (as indices into the outer axis of `network_output`).
+    ///     tuple of (str, numpy.ndarray): The decoded sequences and an array of the final
+    ///         timepoints of each label (as indices into the outer axis of `network_output`) and
+    ///         an array of probabilities for each path.
     ///
     /// Raises:
     ///     ValueError: The constraints on the arguments have not been met.
+    pub fn beam_search(
+        &mut self,
+        network_output: &PyArray2<f32>,
+        alphabet: &PySequence,
+        beam_width: usize,
+        cutoff_prob: f32,
+        alpha: f32,
+        beta: f32,
+        blank_id: usize,
+        space_id: usize
+    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
+
+        let alphabet = seq_to_vec(alphabet)?;
+
+        if (alphabet.len() + 1) != network_output.shape()[1] {
+            Err(ValueError::py_err(format!(
+                "alphabet size {} does not match probability matrix inner dimension {}",
+                alphabet.len(),
+                network_output.shape()[1]
+            )))
+        } else if beam_width == 0 {
+            Err(ValueError::py_err("beam_width cannot be 0"))
+        } else if cutoff_prob < -0.0 {
+            Err(ValueError::py_err(
+                "cutoff_prob must be at least 0.0",
+            ))
+        } else {
+            bsearch::beam_search(
+                unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
+                &alphabet,
+                beam_width,
+                cutoff_prob,
+                alpha,
+                beta,
+                blank_id,
+                space_id,
+                Some(&mut self.infer_model)
+            )
+            .map_err(|e| RuntimeError::py_err(format!("{}", e)))
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct NoLMBeamSearch {
+    infer_model: Option<u32>,
+}
+
+#[pymethods]
+impl NoLMBeamSearch {
 
     #[new]
-    fn new(model_path: &PyUnicode, vocab_path: &PyUnicode, merge_path: &PyUnicode, space_id: u32, pad_token: &PyUnicode) -> Self {
-
-        let model_path_str = model_path.to_string().unwrap().into_owned();
-        let vocab_path_str = vocab_path.to_string().unwrap().into_owned();
-        let merge_path_str = merge_path.to_string().unwrap().into_owned();
-        let pad_token_str = pad_token.to_string().unwrap().into_owned();
-
-        GPT2BeamSearch {
-            infer_model: inferer::GPT2Inferer::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
+    fn new() -> Self {
+        NoLMBeamSearch {
+            infer_model: None,
 
         }
     }
@@ -148,6 +217,7 @@ impl GPT2BeamSearch {
 #[pymodule]
 fn rustlm(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<GPT2BeamSearch>()?;
+    m.add_class::<NoLMBeamSearch>()?;
     //m.add_wrapped(wrap_pyfunction!(beam_search))?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
