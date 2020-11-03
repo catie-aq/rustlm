@@ -2,6 +2,7 @@ use super::SearchError;
 use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
+use crate::inferer::GPT2Inferer;
 
 /// A node in the labelling tree to build from.
 #[derive(Clone, Debug)]
@@ -33,7 +34,8 @@ pub fn beam_search<D: Data<Elem = f32>>(
     alpha: f32,
     beta: f32,
     blank_id: usize,
-    space_id: usize
+    space_id: usize,
+    infer_model: Option<&mut GPT2Inferer>
 ) -> Result<(Vec<String>, Vec<Vec<usize>>, Vec<f32>), SearchError> {
 
     let vocabulary_length = alphabet.len();
@@ -132,6 +134,12 @@ pub fn beam_search<D: Data<Elem = f32>>(
                             .unwrap_or_else(|| suffix_tree.add_node(node, label, idx));
 
                         let mut lm_prob = 1.0; // integrate language model probability here after spaces
+                        /*match inferer {
+                            None => println!("{} / {} failed!", dividend, divisor),
+                            Some(quotient) => {
+                                println!("{} / {} = {}", dividend, divisor, quotient)
+                            },
+                        }*/
 
                         if let Some(x) = prefix_tree.get_mut(&new_node_idx) {
                             (*x).label_prob += (label_prob + blank_prob) * pr * lm_prob;
@@ -235,6 +243,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
             vec_prob.push(prob);
 
         }
+
 
     Ok((vec_str, vec_path, vec_prob))
 }
