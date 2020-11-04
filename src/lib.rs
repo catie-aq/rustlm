@@ -14,6 +14,7 @@ use pyo3::exceptions::{RuntimeError, ValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PySequence, PyUnicode};
 use std::fmt;
+use std::cell::RefCell;
 
 mod bsearch;
 mod tree;
@@ -149,7 +150,7 @@ impl GPT2BeamSearch {
                 beta,
                 blank_id,
                 space_id,
-                Some(&mut self.infer_model)
+                RefCell::new(Some(&mut self.infer_model))
             )
             .map_err(|e| RuntimeError::py_err(format!("{}", e)))
         }
@@ -208,7 +209,7 @@ impl NoLMBeamSearch {
                 beta,
                 blank_id,
                 space_id,
-                None
+                RefCell::new(None)
             )
             .map_err(|e| RuntimeError::py_err(format!("{}", e)))
         }

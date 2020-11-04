@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
 use crate::inferer::{GPT2Inferer};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
+use std::cell::RefCell;
 
 /// A node in the labelling tree to build from.
 #[derive(Clone, Debug)]
@@ -38,7 +39,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
     beta: f32,
     blank_id: usize,
     space_id: usize,
-    infer_model: Option<&mut GPT2Inferer>
+    infer_model: RefCell<Option<&mut GPT2Inferer>>
 ) -> Result<(Vec<String>, Vec<Vec<usize>>, Vec<f32>), SearchError> {
 
     let vocabulary_length = alphabet.len();
@@ -61,7 +62,6 @@ pub fn beam_search<D: Data<Elem = f32>>(
     prefix_tree_prev.insert(0, empty_search_point);
 
     let mut beam = prefix_tree_prev.values().cloned().collect::<Vec<_>>();
-    let mut blank_pr = 0.0;
 
     for (idx, pr) in network_output.outer_iter().enumerate() {
         prefix_tree.clear();
@@ -84,7 +84,6 @@ pub fn beam_search<D: Data<Elem = f32>>(
 
                 // empty token
                 if label == blank_id {
-                    blank_pr = pr;
 
                     if let Some(x) = prefix_tree.get_mut(&node) {
                         (*x).blank_prob += (label_prob + blank_prob) * pr;
@@ -143,20 +142,18 @@ pub fn beam_search<D: Data<Elem = f32>>(
 
                         let mut lm_prob = 1.0; // integrate language model probability here after spaces
 
-                        /*match infer_model {
-                            None => (),
-                            Some(ref mut model) => {
-                                // reconstruct the sentence
-                                let mut sequence = String::new();
+                        /*if let Some(ref mut model) = *infer_model.borrow_mut() {
+                            // reconstruct the sentence
+                            let mut sequence = String::new();
 
-                                if node != ROOT_NODE {
-                                    for (label, &time) in suffix_tree.iter_from(node) {
-                                        sequence.push_str(&alphabet[label]);
-                                    }
+                            if node != ROOT_NODE {
+                                for (label, &time) in suffix_tree.iter_from(node) {
+                                    sequence.push_str(&alphabet[label]);
                                 }
-                                lm_prob = model.infer(vec![sequence.chars().rev().collect::<String>()]).unwrap()[0];
+                                let vec_str = vec![sequence.chars().rev().collect::<String>()];
+                                lm_prob = model.infer(vec_str).unwrap()[0];
                                 lm_prob = (lm_prob * alpha).exp();
-                            },
+                            }
                         }*/
 
                         if let Some(x) = prefix_tree.get_mut(&new_node_idx) {
@@ -249,25 +246,31 @@ pub fn beam_search<D: Data<Elem = f32>>(
             blank_prob,
             space_counter,
         } in &beam
-        {
+    {
 
-            let mut sequence = String::new();
-            let mut path = Vec::<usize>::new();
-            let prob = label_prob + blank_prob;
+        let mut sequence = String::new();
+        let mut path = Vec::<usize>::new();
+        let prob = label_prob + blank_prob;
 
-            if node != ROOT_NODE {
-                for (label, &time) in suffix_tree.iter_from(node) {
-                    path.push(time);
-                    sequence.push_str(&alphabet[label]);
-                }
+        if node != ROOT_NODE {
+            for (label, &time) in suffix_tree.iter_from(node) {
+                path.push(time);
+                sequence.push_str(&alphabet[label]);
             }
-
-            vec_str.push(sequence.chars().rev().collect::<String>());
-            vec_path.push(path);
-            vec_prob.push(prob);
-
         }
 
+        vec_str.push(sequence.chars().rev().collect::<String>());
+        vec_path.push(path);
+        vec_prob.push(prob);
+    }
 
-    Ok((vec_str, vec_path, vec_prob))
+    // Recompute the probabilities from the language model
+    if let Some(ref mut model) = *infer_model.borrow_mut() {
+        let model_logprob = model.infer(vec_str.clone()).unwrap();
+        let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
+
+        Ok((vec_str, vec_path, model_prob))
+    } else {
+        Ok((vec_str, vec_path, vec_prob))
+    }
 }
