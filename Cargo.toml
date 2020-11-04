@@ -14,9 +14,9 @@ pyo3 = { version = "0.11.1", features = ["extension-module"] }
 ndarray = { version = "0.13.1", features = ["blas", "rayon"] }
 rayon = "1.5.0"
 radix_trie = { version = "0.2.0" }
-tokenizers = { path = "/home/balbar/Library/tokenizers/tokenizers" }
-onnxruntime-sys = {version = "0.0.10", path = "/home/balbar/Library/onnxruntime-rs/onnxruntime-sys"}
-onnxruntime = {version = "0.0.10", path = "/home/balbar/Library/onnxruntime-rs/onnxruntime"}
+tokenizers = { path = "submodules/tokenizers/tokenizers" }
+onnxruntime-sys = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxruntime-sys"}
+onnxruntime = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxruntime"}
 tracing = "0.1"
 tracing-subscriber = "0.2"
 

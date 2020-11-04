@@ -1,0 +1,6 @@
+[submodule "submodules/tokenizers"]
+	path = submodules/tokenizers
+	url = https://github.com/huggingface/tokenizers.git
+[submodule "submodules/onnxruntime-rs"]
+	path = submodules/onnxruntime-rs
+	url = https://github.com/nbigaouette/onnxruntime-rs.git
