@@ -1,5 +1,6 @@
 #!/usr/env/bin python3
 
+import os.path
 import numpy as np
 from unittest import TestCase, main
 from rustlm import *
@@ -19,7 +20,12 @@ class Test1DBeamSearch(TestCase):
 
     def test_gpt2_beam_search(self):
         """ gpt based beam search test with the canonical alphabet """
-        gpt2_beam_search = GPT2BeamSearch("../../test_rust_inference2/french_tokenizer-vocab.json", "../../test_rust_inference2/french_tokenizer-merges.txt", "../../test_rust_inference2/model.onnx", 1, "<pad>")
+        # assume that file are in the test directory
+        if (not os.path.isfile('french_tokenizer-vocab.json')) or (not os.path.isfile('french_tokenizer-merges.json')) or (not os.path.isfile('model.onnx')):
+            print("GPT2 test diasabled - files not found.")
+            return
+
+        gpt2_beam_search = GPT2BeamSearch("french_tokenizer-vocab.json", "french_tokenizer-merges.txt", "model.onnx", 1, "<pad>")
         seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 0.5, 0.0, len(self.alphabet), self.alphabet.index(" "))
         print(seqs)
         print(paths)
