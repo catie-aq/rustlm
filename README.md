@@ -4,6 +4,15 @@ This an efficient CTC Decoder supporting external language models scorer (Neural
 
 This work is initially based on the beautiful work of fast-ctc-decode (https://github.com/nanoporetech/fast-ctc-decode).
 
+## Installation
+
+```bash
+git clone https://gitlab.com/sido/asr/rustlm.git --recursive
+cd rustlm
+make build
+pip install target/wheels/rustlm-0.2.0-cp38-cp38-linux_x86_64.whl
+```
+
 TODO list:
 
 - Support batch inference
