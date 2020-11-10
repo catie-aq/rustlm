@@ -13,7 +13,7 @@ make build
 pip install target/wheels/rustlm-0.2.0-cp38-cp38-linux_x86_64.whl
 ```
 
-TODO list:
+## TODO List:
 
 - Support batch inference
 - Add/improve parallelization/multithreading (rayon?)
