@@ -8,6 +8,10 @@ use onnxruntime::{
     environment::Environment, session::Session, tensor::OrtOwnedTensor, GraphOptimizationLevel, LoggingLevel,
 };
 
+pub trait Inferer {
+    fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>>;
+}
+
 pub struct GPT2Inferer {
     tokenizer: Tokenizer,
     environment: Environment, // /!\ needed for avoiding segfault
@@ -49,8 +53,11 @@ impl GPT2Inferer {
             session: session,
         })
     }
+}
 
-    pub fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>> {
+impl Inferer for GPT2Inferer {
+
+    fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>> {
         let encoding = self.tokenizer.encode_batch(input, false)?;
 
         let length = encoding[0].get_ids().len();

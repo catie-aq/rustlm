@@ -2,7 +2,7 @@ use super::SearchError;
 use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
-use crate::inferer::{GPT2Inferer};
+use crate::inferer::{Inferer};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 use std::cell::RefCell;
 
@@ -39,7 +39,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
     beta: f32,
     blank_id: usize,
     space_id: usize,
-    infer_model: RefCell<Option<&mut GPT2Inferer>>
+    infer_model: RefCell<Option<&mut dyn Inferer>>
 ) -> Result<(Vec<String>, Vec<Vec<usize>>, Vec<f32>), SearchError> {
 
     let vocabulary_length = alphabet.len();

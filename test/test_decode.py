@@ -21,7 +21,7 @@ class Test1DBeamSearch(TestCase):
     def test_gpt2_beam_search(self):
         """ gpt based beam search test with the canonical alphabet """
         # assume that file are in the test directory
-        if (not os.path.isfile('french_tokenizer-vocab.json')) or (not os.path.isfile('french_tokenizer-merges.json')) or (not os.path.isfile('model.onnx')):
+        if (not os.path.isfile('french_tokenizer-vocab.json')) or (not os.path.isfile('french_tokenizer-merges.txt')) or (not os.path.isfile('model.onnx')):
             print("GPT2 test diasabled - files not found.")
             return
 
