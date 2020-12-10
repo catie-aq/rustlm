@@ -10,7 +10,9 @@ extern crate test; // benchmarking
 
 use numpy::PyArray2;
 
-use pyo3::exceptions::{RuntimeError, ValueError};
+use pyo3::{PyResult, PyErr};
+use pyo3::exceptions::{PyValueError, PyRuntimeError};
+
 use pyo3::prelude::*;
 use pyo3::types::{PySequence, PyUnicode};
 use std::fmt;
@@ -69,10 +71,10 @@ impl GPT2BeamSearch {
     #[new]
     fn new(model_path: &PyUnicode, vocab_path: &PyUnicode, merge_path: &PyUnicode, space_id: u32, pad_token: &PyUnicode) -> Self {
 
-        let model_path_str = model_path.to_string().unwrap().into_owned();
-        let vocab_path_str = vocab_path.to_string().unwrap().into_owned();
-        let merge_path_str = merge_path.to_string().unwrap().into_owned();
-        let pad_token_str = pad_token.to_string().unwrap().into_owned();
+        let model_path_str = model_path.to_string();
+        let vocab_path_str = vocab_path.to_string();
+        let merge_path_str = merge_path.to_string();
+        let pad_token_str = pad_token.to_string();
 
         GPT2BeamSearch {
             infer_model: inferer::GPT2Inferer::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
@@ -129,17 +131,18 @@ impl GPT2BeamSearch {
         let alphabet = seq_to_vec(alphabet)?;
 
         if (alphabet.len() + 1) != network_output.shape()[1] {
-            Err(ValueError::py_err(format!(
+           let err: PyErr = PyValueError::new_err(format!(
                 "alphabet size {} does not match probability matrix inner dimension {}",
                 alphabet.len(),
                 network_output.shape()[1]
-            )))
+            ));
+            Err(err)
         } else if beam_width == 0 {
-            Err(ValueError::py_err("beam_width cannot be 0"))
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
         } else if cutoff_prob < -0.0 {
-            Err(ValueError::py_err(
-                "cutoff_prob must be at least 0.0",
-            ))
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
         } else {
             bsearch::beam_search(
                 unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
@@ -152,7 +155,7 @@ impl GPT2BeamSearch {
                 space_id,
                 RefCell::new(Some(&mut self.infer_model))
             )
-            .map_err(|e| RuntimeError::py_err(format!("{}", e)))
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
         }
     }
 }
@@ -188,17 +191,18 @@ impl NoLMBeamSearch {
         let alphabet = seq_to_vec(alphabet)?;
 
         if (alphabet.len() + 1) != network_output.shape()[1] {
-            Err(ValueError::py_err(format!(
+            let err: PyErr = PyValueError::new_err(format!(
                 "alphabet size {} does not match probability matrix inner dimension {}",
                 alphabet.len(),
                 network_output.shape()[1]
-            )))
+            ));
+            Err(err)
         } else if beam_width == 0 {
-            Err(ValueError::py_err("beam_width cannot be 0"))
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
         } else if cutoff_prob < -0.0 {
-            Err(ValueError::py_err(
-                "cutoff_prob must be at least 0.0",
-            ))
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
         } else {
             bsearch::beam_search(
                 unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
@@ -211,7 +215,7 @@ impl NoLMBeamSearch {
                 space_id,
                 RefCell::new(None)
             )
-            .map_err(|e| RuntimeError::py_err(format!("{}", e)))
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
         }
     }
 }
