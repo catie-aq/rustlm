@@ -2,7 +2,7 @@ use super::SearchError;
 use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
-use crate::inferer::{Inferer};
+use crate::inferer::{Inferer, InferenceType};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 use std::cell::RefCell;
 
@@ -134,27 +134,13 @@ pub fn beam_search<D: Data<Elem = f32>>(
                             }
                         }
                     } else if label == space_id {
-                        // A space, integrate language model
+                        // A space, increment space counter
 
                         let new_node_idx = suffix_tree
                             .get_child(node, label)
                             .unwrap_or_else(|| suffix_tree.add_node(node, label, idx));
 
                         let mut lm_prob = 1.0; // integrate language model probability here after spaces
-
-                        /*if let Some(ref mut model) = *infer_model.borrow_mut() {
-                            // reconstruct the sentence
-                            let mut sequence = String::new();
-
-                            if node != ROOT_NODE {
-                                for (label, &time) in suffix_tree.iter_from(node) {
-                                    sequence.push_str(&alphabet[label]);
-                                }
-                                let vec_str = vec![sequence.chars().rev().collect::<String>()];
-                                lm_prob = model.infer(vec_str).unwrap()[0];
-                                lm_prob = (lm_prob * alpha).exp();
-                            }
-                        }*/
 
                         if let Some(x) = prefix_tree.get_mut(&new_node_idx) {
                             (*x).label_prob += (label_prob + blank_prob) * pr * lm_prob;
@@ -236,6 +222,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
         */
     }
 
+    // Extract sentences
     let mut vec_str = Vec::<String>::new();
     let mut vec_path = Vec::<Vec<usize>>::new();
     let mut vec_prob = Vec::<f32>::new();
@@ -264,12 +251,17 @@ pub fn beam_search<D: Data<Elem = f32>>(
         vec_prob.push(prob);
     }
 
-    // Recompute the probabilities from the language model
+    // Rescore the probabilities from the language model if neccessary
     if let Some(ref mut model) = *infer_model.borrow_mut() {
-        let model_logprob = model.infer(vec_str.clone()).unwrap();
-        let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
+        // if model is of type "final rescoring"
+        if model.inference_type() == InferenceType::FinalRescoring {
+            let model_logprob = model.infer(vec_str.clone()).unwrap();
+            let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
 
-        Ok((vec_str, vec_path, model_prob))
+            Ok((vec_str, vec_path, model_prob))
+        } else {
+            Ok((vec_str, vec_path, vec_prob))
+        }
     } else {
         Ok((vec_str, vec_path, vec_prob))
     }

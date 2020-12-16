@@ -8,8 +8,17 @@ use onnxruntime::{
     environment::Environment, session::Session, tensor::OrtOwnedTensor, GraphOptimizationLevel, LoggingLevel,
 };
 
+#[derive(PartialEq, Eq)]
+pub enum InferenceType {
+    FinalRescoring, // final rescoring of the last truncated beam (suited for large GPT style LM)
+    Rescoring, // rescoring at each beam before truncation (for smaller language models) - NOT SUPPORTED
+    ShallowFusion, // merge probabilities of LM with input probabilities (suited for character level LM) - NOT SUPPORTED
+    NgramForecast, // n-gram based for summing all possible word given a prefix - NOT SUPPORTED
+}
+
 pub trait Inferer {
     fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>>;
+    fn inference_type(&self) -> InferenceType;
 }
 
 pub struct GPT2Inferer {
@@ -87,5 +96,9 @@ impl Inferer for GPT2Inferer {
         }
 
         Ok(result_vec)
+    }
+
+    fn inference_type(&self) -> InferenceType {
+        InferenceType::FinalRescoring
     }
 }
