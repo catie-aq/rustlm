@@ -19,6 +19,7 @@ onnxruntime-sys = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxrun
 onnxruntime = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxruntime"}
 tracing = "0.1"
 tracing-subscriber = "0.2"
+permutation = {git = "https://github.com/jeremysalwen/rust-permutations"}
 
 [features]
 default = ["fastexp"]

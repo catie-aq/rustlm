@@ -5,6 +5,7 @@ use crate::tree::{SuffixTree, ROOT_NODE};
 use crate::inferer::{Inferer, InferenceType};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 use std::cell::RefCell;
+use std::cmp::Ordering;
 
 /// A node in the labelling tree to build from.
 #[derive(Clone, Debug)]
@@ -258,11 +259,12 @@ pub fn beam_search<D: Data<Elem = f32>>(
             let model_logprob = model.infer(vec_str.clone()).unwrap();
             let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
 
-            Ok((vec_str, vec_path, model_prob))
-        } else {
-            Ok((vec_str, vec_path, vec_prob))
+            let permutation = permutation::sort_by(&model_prob[..], |a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+            vec_prob = permutation.apply_slice(&model_prob[..]);
+            vec_str = permutation.apply_slice(&vec_str[..]);
+            vec_path = permutation.apply_slice(&vec_path[..]);
         }
-    } else {
-        Ok((vec_str, vec_path, vec_prob))
     }
+
+    Ok((vec_str, vec_path, vec_prob))
 }
