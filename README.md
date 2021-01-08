@@ -4,6 +4,14 @@ This an efficient CTC Decoder supporting external language models scorer (Neural
 
 This work is initially based on the beautiful work of fast-ctc-decode (https://github.com/nanoporetech/fast-ctc-decode).
 
+## Requirements
+```bash
+pip install maturin
+curl https://sh.rustup.rs -sSf | sh
+rustup default nightly
+# if maturin is not found later, just add $HOME/.local/bin/ to your PATH
+```
+
 ## Installation
 
 ```bash
