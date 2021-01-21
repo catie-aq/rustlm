@@ -2,7 +2,7 @@ use super::SearchError;
 use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
-use crate::inferer::{Inferer, InferenceType};
+use crate::language_model::{LanguageModel, LMType};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -40,7 +40,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
     beta: f32,
     blank_id: usize,
     space_id: usize,
-    infer_model: RefCell<Option<&mut dyn Inferer>>
+    infer_model: RefCell<Option<&mut dyn LanguageModel>>
 ) -> Result<(Vec<String>, Vec<Vec<usize>>, Vec<f32>), SearchError> {
 
     let vocabulary_length = alphabet.len();
@@ -77,8 +77,29 @@ pub fn beam_search<D: Data<Elem = f32>>(
         {
 
             let last_label = suffix_tree.label(node);
+            let mut pr_copy = pr.to_owned();
 
-            for (label, &pr) in pr.iter().enumerate() {
+            // Shallow fusion language model
+            if let Some(ref mut model) = *infer_model.borrow_mut() {
+                // if model is of type "final rescoring"
+                if model.lm_type() == LMType::ShallowFusion {
+                    let mut sequence = String::new();
+                    if node != ROOT_NODE {
+                        for (label, &time) in suffix_tree.iter_from(node) {
+                            sequence.push_str(&alphabet[label]);
+                        }
+                    }
+
+                    let sequence_string = sequence.chars().rev().collect::<String>();
+                    let lm_prob = model.get_next_letter(vec![sequence_string], alphabet, blank_id, space_id).unwrap();
+                    pr_copy = pr_copy * lm_prob.row(0);
+                    let sum_probs = pr_copy.sum();
+                    pr_copy = pr_copy / sum_probs; // renormalize probabilities
+                }
+            }
+
+
+            for (label, &pr) in pr_copy.iter().enumerate() {
                 if pr < cutoff_prob {
                     continue;
                 }
@@ -211,16 +232,6 @@ pub fn beam_search<D: Data<Elem = f32>>(
         }
 
         std::mem::swap(&mut prefix_tree_prev, &mut prefix_tree);
-
-        /*
-        let mut sequence = String::new();
-        if beam[0].node != ROOT_NODE {
-            for (label, &time) in suffix_tree.iter_from(beam[0].node) {
-                sequence.push_str(&alphabet[label]);
-            }
-        }
-        println!("{}", sequence.chars().rev().collect::<String>());
-        */
     }
 
     // Extract sentences
@@ -255,8 +266,8 @@ pub fn beam_search<D: Data<Elem = f32>>(
     // Rescore the probabilities from the language model if neccessary
     if let Some(ref mut model) = *infer_model.borrow_mut() {
         // if model is of type "final rescoring"
-        if model.inference_type() == InferenceType::FinalRescoring {
-            let model_logprob = model.infer(vec_str.clone()).unwrap();
+        if model.lm_type() == LMType::FinalRescoring {
+            let model_logprob = model.get_sentence_likelihood(vec_str.clone()).unwrap();
             let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
 
             let permutation = permutation::sort_by(&model_prob[..], |a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));

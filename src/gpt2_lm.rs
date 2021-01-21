@@ -1,34 +1,23 @@
+use ndarray::{s, Axis, Array, Array2};
+use crate::language_model::{LanguageModel, LMType};
+use std::unimplemented;
+
 use tokenizers::tokenizer::{Result, Tokenizer, PaddingParams};
 use tokenizers::pre_tokenizers::byte_level::ByteLevel;
 use tokenizers::models::bpe::BPE;
-
-use ndarray::{s, Axis, Array};
 
 use onnxruntime::{
     environment::Environment, session::Session, tensor::OrtOwnedTensor, GraphOptimizationLevel, LoggingLevel,
 };
 
-#[derive(PartialEq, Eq)]
-pub enum InferenceType {
-    FinalRescoring, // final rescoring of the last truncated beam (suited for large GPT style LM)
-    Rescoring, // rescoring at each beam before truncation (for smaller language models) - NOT SUPPORTED
-    ShallowFusion, // merge probabilities of LM with input probabilities (suited for character level LM) - NOT SUPPORTED
-    NgramForecast, // n-gram based for summing all possible word given a prefix - NOT SUPPORTED
-}
-
-pub trait Inferer {
-    fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>>;
-    fn inference_type(&self) -> InferenceType;
-}
-
-pub struct GPT2Inferer {
+pub struct GPT2LanguageModel {
     tokenizer: Tokenizer,
     environment: Environment, // /!\ needed for avoiding segfault
     session: Session,
 }
 
-impl GPT2Inferer {
-    pub fn load_from_files(vocab_path: &str, merge_path: &str, model_path: &str, padding_id: u32, padding_string: &str) -> Result<GPT2Inferer> {
+impl GPT2LanguageModel {
+    pub fn load_from_files(vocab_path: &str, merge_path: &str, model_path: &str, padding_id: u32, padding_string: &str) -> Result<GPT2LanguageModel> {
 
         let bpe_builder = BPE::from_file(vocab_path, merge_path);
         let bpe = bpe_builder
@@ -56,7 +45,7 @@ impl GPT2Inferer {
             .with_number_threads(4)?
             .with_model_from_file(model_path)?;
 
-        Ok(GPT2Inferer {
+        Ok(GPT2LanguageModel {
             tokenizer: tokenizer,
             environment: environment,
             session: session,
@@ -64,9 +53,9 @@ impl GPT2Inferer {
     }
 }
 
-impl Inferer for GPT2Inferer {
+impl LanguageModel for GPT2LanguageModel {
 
-    fn infer(&mut self, input: Vec<String>) -> Result<Vec<f32>> {
+    fn get_sentence_likelihood(&mut self, input: Vec<String>) -> Result<Vec<f32>> {
         let encoding = self.tokenizer.encode_batch(input, false)?;
 
         let length = encoding[0].get_ids().len();
@@ -98,7 +87,11 @@ impl Inferer for GPT2Inferer {
         Ok(result_vec)
     }
 
-    fn inference_type(&self) -> InferenceType {
-        InferenceType::FinalRescoring
+    fn get_next_letter(&mut self, input: Vec<String>, vocab: &[String], blank_id: usize, space_id: usize) -> Result<Array2<f32>> {
+        unimplemented!()
+    }
+
+    fn lm_type(&self) -> LMType {
+        LMType::FinalRescoring
     }
 }

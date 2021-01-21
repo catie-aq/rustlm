@@ -25,18 +25,30 @@ class Test1DBeamSearch(TestCase):
             print("GPT2 test diasabled - files not found.")
             return
 
+        print("GPT2 Test.")
         gpt2_beam_search = GPT2BeamSearch("french_tokenizer-vocab.json", "french_tokenizer-merges.txt", "model.onnx", 1, "<pad>")
         seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 0.5, 0.0, len(self.alphabet), self.alphabet.index(" "))
         print(seqs)
-        print(paths)
         print(prbs)
 
     def test_nolm_beam_search(self):
         """ simple beam search test with the canonical alphabet """
+        print("NoLM Test.")
         nolm_beam_search = NoLMBeamSearch()
         seqs, paths, prbs = nolm_beam_search.beam_search(self.probs, self.alphabet, self.beam_width, self.cutoff_prob, 0.0, 0.0, len(self.alphabet), self.alphabet.index(" "))
         print(seqs)
-        print(paths)
+        print(prbs)
+
+    def test_dico_based_beam_search(self):
+        """ simple beam search test with the canonical alphabet """
+        if not os.path.isfile('dico.txt'):
+            print("Dico test diasabled - file not found.")
+            return
+
+        print("Dico Test.")
+        dico_beam_search = DicoBeamSearch("dico.txt")
+        seqs, paths, prbs = dico_beam_search.beam_search(self.probs, self.alphabet, 1, self.cutoff_prob, 0.0, 0.0, len(self.alphabet), self.alphabet.index(" "))
+        print(seqs)
         print(prbs)
 
 

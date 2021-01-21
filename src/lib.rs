@@ -1,11 +1,9 @@
 #![feature(static_nobundle)]
-#![feature(clamp)]
 #![feature(test)] // benchmarking
 
 #[macro_use(s)]
 #[cfg_attr(test, macro_use(array))]
 extern crate ndarray;
-
 extern crate test; // benchmarking
 
 use numpy::PyArray2;
@@ -21,7 +19,9 @@ use std::cell::RefCell;
 mod bsearch;
 mod tree;
 mod vec2d;
-mod inferer;
+mod language_model;
+mod dico_lm;
+mod gpt2_lm;
 mod fast_math;
 
 #[derive(Clone, Copy, Debug)]
@@ -54,7 +54,7 @@ fn seq_to_vec(seq: &PySequence) -> PyResult<Vec<String>> {
 
 #[pyclass(unsendable)]
 struct GPT2BeamSearch {
-    infer_model: inferer::GPT2Inferer,
+    lm_model: gpt2_lm::GPT2LanguageModel,
 }
 
 #[pymethods]
@@ -77,7 +77,7 @@ impl GPT2BeamSearch {
         let pad_token_str = pad_token.to_string();
 
         GPT2BeamSearch {
-            infer_model: inferer::GPT2Inferer::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
+            lm_model: gpt2_lm::GPT2LanguageModel::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
         }
     }
 
@@ -153,7 +153,7 @@ impl GPT2BeamSearch {
                 beta,
                 blank_id,
                 space_id,
-                RefCell::new(Some(&mut self.infer_model))
+                RefCell::new(Some(&mut self.lm_model))
             )
             .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
         }
@@ -162,7 +162,7 @@ impl GPT2BeamSearch {
 
 #[pyclass(unsendable)]
 struct NoLMBeamSearch {
-    infer_model: Option<u32>,
+    lm_model: Option<u32>,
 }
 
 #[pymethods]
@@ -171,8 +171,7 @@ impl NoLMBeamSearch {
     #[new]
     fn new() -> Self {
         NoLMBeamSearch {
-            infer_model: None,
-
+            lm_model: None,
         }
     }
 
@@ -220,10 +219,72 @@ impl NoLMBeamSearch {
     }
 }
 
+#[pyclass(unsendable)]
+struct DicoBeamSearch {
+    lm_model: dico_lm::DicoLanguageModel,
+}
+
+#[pymethods]
+impl DicoBeamSearch {
+
+    #[new]
+    fn new(dico_path: &PyUnicode) -> Self {
+        let dico_path_str = dico_path.to_string();
+
+        DicoBeamSearch {
+            lm_model: dico_lm::DicoLanguageModel::load_from_files(&dico_path_str).unwrap(),
+        }
+    }
+
+    pub fn beam_search(
+        &mut self,
+        network_output: &PyArray2<f32>,
+        alphabet: &PySequence,
+        beam_width: usize,
+        cutoff_prob: f32,
+        alpha: f32,
+        beta: f32,
+        blank_id: usize,
+        space_id: usize
+    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
+
+        let alphabet = seq_to_vec(alphabet)?;
+
+        if (alphabet.len() + 1) != network_output.shape()[1] {
+            let err: PyErr = PyValueError::new_err(format!(
+                "alphabet size {} does not match probability matrix inner dimension {}",
+                alphabet.len(),
+                network_output.shape()[1]
+            ));
+            Err(err)
+        } else if beam_width == 0 {
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
+        } else if cutoff_prob < -0.0 {
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
+        } else {
+            bsearch::beam_search(
+                unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
+                &alphabet,
+                beam_width,
+                cutoff_prob,
+                alpha,
+                beta,
+                blank_id,
+                space_id,
+                RefCell::new(Some(&mut self.lm_model)),
+            )
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
+        }
+    }
+}
+
 #[pymodule]
 fn rustlm(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<GPT2BeamSearch>()?;
     m.add_class::<NoLMBeamSearch>()?;
+    m.add_class::<DicoBeamSearch>()?;
     //m.add_wrapped(wrap_pyfunction!(beam_search))?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())

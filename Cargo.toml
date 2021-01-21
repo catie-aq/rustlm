@@ -1,6 +1,6 @@
 [package]
 name = "rustlm"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Boris Albar <b.albar@catie.fr"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ numpy = "0.12.1"
 pyo3 = { version = "0.12.4", features = ["extension-module"] }
 ndarray = { version = "0.13.1", features = ["blas", "rayon"] }
 rayon = "1.5.0"
-radix_trie = { version = "0.2.0" }
+patricia_tree = { version = "0.3.0" }
 tokenizers = { path = "submodules/tokenizers/tokenizers" }
 onnxruntime-sys = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxruntime-sys"}
 onnxruntime = {version = "0.0.10", path = "submodules/onnxruntime-rs/onnxruntime"}
