@@ -87,6 +87,13 @@ pub fn beam_search_rnnt(
         {
 
             if is_end_point == true {
+                prefix_tree.insert(node, SearchPoint {
+                    node,
+                    label_prob: label_prob,
+                    state_index: state_index,
+                    last_label: last_label,
+                    is_end_point: is_end_point
+                });
                 continue;
             }
 

@@ -65,7 +65,7 @@ class Test1DBeamSearch(TestCase):
         """ simple beam search test with the canonical alphabet """
         print("NoLM RNNT Test.")
         nolm_beam_search_rnnt = BeamSearchRNNTNoLM("http://0.0.0.0:7001", "decoder_macarena", 1, 640)
-        seqs, paths, prbs = nolm_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 8, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
+        seqs, paths, prbs = nolm_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 6, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
         print(seqs)
         print(prbs)
 
