@@ -57,6 +57,18 @@ pub fn logsumexp_2(x: f32, y:f32) -> f32 {
     }
 }
 
+pub fn softmax(vec: Vec<f32>) -> Vec<f32> {
+    let exp_vec: Vec<f32> = vec.iter().map(|x| (*x as f32).exp()).collect();
+    let sum: f32 = exp_vec.iter().sum();
+
+    exp_vec.iter().map(|x| x / sum).collect::<Vec<f32>>()
+}
+
+pub fn normalize(vec: Vec<f32>) -> Vec<f32> {
+    let max: f32 = *vec.iter().max_by(|x, y| x.partial_cmp(y).unwrap()).unwrap();
+    vec.iter().map(|x| x - max).collect::<Vec<f32>>()
+}
+
 #[inline]
 pub fn logsumexp(xs: &[f32], max: f32) -> f32 {
     fast_log(xs.iter().fold(0., |acc, &x| acc + fast_exp(x - max))) + max

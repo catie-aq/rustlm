@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
 use crate::language_model::{LanguageModel, LMType};
 use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
+use crate::token_to_string::token_to_string;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 
@@ -31,16 +32,17 @@ impl SearchPoint {
     }
 }
 
-pub fn beam_search<D: Data<Elem = f32>>(
+pub fn beam_search_ctc<D: Data<Elem = f32>>(
     network_output: &ArrayBase<D, Ix2>,
     alphabet: &[String],
+    alphabet_type: String,
     beam_width: usize,
     cutoff_prob: f32,
     alpha: f32,
     beta: f32,
     blank_id: usize,
     space_id: usize,
-    infer_model: RefCell<Option<&mut dyn LanguageModel>>
+    language_model: RefCell<Option<&mut dyn LanguageModel>>
 ) -> Result<(Vec<String>, Vec<Vec<usize>>, Vec<f32>), SearchError> {
 
     let vocabulary_length = alphabet.len();
@@ -80,7 +82,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
             let mut pr_copy = pr.to_owned();
 
             // Shallow fusion language model
-            if let Some(ref mut model) = *infer_model.borrow_mut() {
+            if let Some(ref mut model) = *language_model.borrow_mut() {
                 // if model is of type "final rescoring"
                 if model.lm_type() == LMType::ShallowFusion {
                     let mut sequence = String::new();
@@ -235,6 +237,7 @@ pub fn beam_search<D: Data<Elem = f32>>(
     }
 
     // Extract sentences
+    let mut vec_tokens = Vec::<Vec<String>>::new();
     let mut vec_str = Vec::<String>::new();
     let mut vec_path = Vec::<Vec<usize>>::new();
     let mut vec_prob = Vec::<f32>::new();
@@ -247,27 +250,29 @@ pub fn beam_search<D: Data<Elem = f32>>(
         } in &beam
     {
 
-        let mut sequence = String::new();
+        let mut sequence = Vec::<String>::new();
         let mut path = Vec::<usize>::new();
         let prob = label_prob + blank_prob;
 
         if node != ROOT_NODE {
             for (label, &time) in suffix_tree.iter_from(node) {
                 path.push(time);
-                sequence.push_str(&alphabet[label]);
+                sequence.push(alphabet[label].to_string());
             }
         }
 
-        vec_str.push(sequence.chars().rev().collect::<String>());
+        sequence.reverse();
+        vec_tokens.push(sequence.to_owned());
+        vec_str.push(token_to_string(sequence, &alphabet_type).unwrap().to_owned());
         vec_path.push(path);
         vec_prob.push(prob);
     }
 
     // Rescore the probabilities from the language model if neccessary
-    if let Some(ref mut model) = *infer_model.borrow_mut() {
+    if let Some(ref mut model) = *language_model.borrow_mut() {
         // if model is of type "final rescoring"
         if model.lm_type() == LMType::FinalRescoring {
-            let model_logprob = model.get_sentence_likelihood(vec_str.clone()).unwrap();
+            let model_logprob = model.get_sentence_likelihood(vec_str.to_owned()).unwrap();
             let model_prob: Vec<f32> = model_logprob.iter().map(|x| x.exp()).collect();
 
             let permutation = permutation::sort_by(&model_prob[..], |a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
@@ -279,3 +284,4 @@ pub fn beam_search<D: Data<Elem = f32>>(
 
     Ok((vec_str, vec_path, vec_prob))
 }
+

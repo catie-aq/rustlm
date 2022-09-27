@@ -1,12 +1,6 @@
-#![feature(static_nobundle)]
-#![feature(test)] // benchmarking
-
-#[macro_use(s)]
-#[cfg_attr(test, macro_use(array))]
 extern crate ndarray;
-extern crate test; // benchmarking
 
-use numpy::PyArray2;
+use numpy::{PyArray2, PyArray3};
 
 use pyo3::{PyResult, PyErr};
 use pyo3::exceptions::{PyValueError, PyRuntimeError};
@@ -16,13 +10,18 @@ use pyo3::types::{PySequence, PyUnicode};
 use std::fmt;
 use std::cell::RefCell;
 
-mod bsearch;
+//mod bsearch;
+mod bsearch_ctc;
+mod bsearch_rnnt;
 mod tree;
 mod vec2d;
 mod language_model;
 mod dico_lm;
-mod gpt2_lm;
 mod fast_math;
+mod audio_model;
+mod token_to_string;
+mod final_gpt_lm;
+mod nemo_rnnt_audio_model;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SearchError {
@@ -53,124 +52,16 @@ fn seq_to_vec(seq: &PySequence) -> PyResult<Vec<String>> {
 }
 
 #[pyclass(unsendable)]
-struct GPT2BeamSearch {
-    lm_model: gpt2_lm::GPT2LanguageModel,
-}
-
-#[pymethods]
-impl GPT2BeamSearch {
-
-    /// Build a GPT2BeamSearch
-    ///
-    /// Args:
-    ///     model_path (String): Path to the onnx model.
-    ///     vocab_path (String): Path to the tokenizer vocab file.
-    ///     merge_path (String): Path to the tokenizer merge file.
-    ///     space_id (u32): The index of the space character
-    ///     pad_token (String): The token for padding
-    #[new]
-    fn new(model_path: &PyUnicode, vocab_path: &PyUnicode, merge_path: &PyUnicode, space_id: u32, pad_token: &PyUnicode) -> Self {
-
-        let model_path_str = model_path.to_string();
-        let vocab_path_str = vocab_path.to_string();
-        let merge_path_str = merge_path.to_string();
-        let pad_token_str = pad_token.to_string();
-
-        GPT2BeamSearch {
-            lm_model: gpt2_lm::GPT2LanguageModel::load_from_files(&model_path_str, &vocab_path_str, &merge_path_str, space_id, &pad_token_str).unwrap(),
-        }
-    }
-
-    /// Perform a CTC beam search decode on an RNN output using a GPT2 based LM.
-    ///
-    /// This function does a beam search variant of the prefix search decoding mentioned (and described
-    /// in fairly vague terms) in the original CTC paper (Graves et al, 2006, section 3.2).
-    ///
-    /// The paper mentioned above provides recursive equations that give an efficient way to find the
-    /// probability for a specific labelling. A tree of possible labelling suffixes, together with
-    /// their probabilities, can be built up by starting at one end and trying every possible label at
-    /// each stage. The "beam" part of the search is how we keep the search space managable - at each
-    /// step, we ignore all but the most-probable tree leaves (like searching with a torch beam). This
-    /// means we may not actually find the most likely labelling, but it often works very well.
-    ///
-    /// See the module-level documentation for general requirements on `network_output` and `alphabet`.
-    ///
-    /// Args:
-    ///     network_output (numpy.ndarray): The 2D array output of the neural network.
-    ///     alphabet (sequence): The labels (including the blank label, which must be first) in the
-    ///         order given on the inner axis of `network_output`.
-    ///     beam_width (usize): How many search points should be kept at each step. Higher numbers are
-    ///         less likely to discard the true labelling, but also make it slower and more memory
-    ///         intensive. Must be at least 1.
-    ///     cutoff_prob (float): Ignore any entries in `network_output` below this value. Must
-    ///         be at least 0.0, and less than ``1/len(alphabet)``.
-    ///     alpha (float): Language model weight
-    ///     beta (float): Word insertion weight
-    ///     blank_id (usize): The index of the blank (epsilon) character in the array
-    ///     space_id (usize): The index of the space character in the array
-    ///
-    /// Returns:
-    ///     tuple of (str, numpy.ndarray): The decoded sequences and an array of the final
-    ///         timepoints of each label (as indices into the outer axis of `network_output`) and
-    ///         an array of probabilities for each path.
-    ///
-    /// Raises:
-    ///     ValueError: The constraints on the arguments have not been met.
-    pub fn beam_search(
-        &mut self,
-        network_output: &PyArray2<f32>,
-        alphabet: &PySequence,
-        beam_width: usize,
-        cutoff_prob: f32,
-        alpha: f32,
-        beta: f32,
-        blank_id: usize,
-        space_id: usize
-    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
-
-        let alphabet = seq_to_vec(alphabet)?;
-
-        if (alphabet.len() + 1) != network_output.shape()[1] {
-           let err: PyErr = PyValueError::new_err(format!(
-                "alphabet size {} does not match probability matrix inner dimension {}",
-                alphabet.len(),
-                network_output.shape()[1]
-            ));
-            Err(err)
-        } else if beam_width == 0 {
-            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
-            Err(err)
-        } else if cutoff_prob < -0.0 {
-            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
-            Err(err)
-        } else {
-            bsearch::beam_search(
-                unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
-                &alphabet,
-                beam_width,
-                cutoff_prob,
-                alpha,
-                beta,
-                blank_id,
-                space_id,
-                RefCell::new(Some(&mut self.lm_model))
-            )
-            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
-        }
-    }
-}
-
-#[pyclass(unsendable)]
-struct NoLMBeamSearch {
+struct BeamSearchCTCNoLM {
     lm_model: Option<u32>,
 }
 
 #[pymethods]
-impl NoLMBeamSearch {
+impl BeamSearchCTCNoLM {
 
     #[new]
     fn new() -> Self {
-        NoLMBeamSearch {
+        BeamSearchCTCNoLM {
             lm_model: None,
         }
     }
@@ -179,12 +70,14 @@ impl NoLMBeamSearch {
         &mut self,
         network_output: &PyArray2<f32>,
         alphabet: &PySequence,
+        alphabet_type: &PyUnicode,
         beam_width: usize,
         cutoff_prob: f32,
         alpha: f32,
         beta: f32,
         blank_id: usize,
-        space_id: usize
+        space_id: usize,
+        sep_id: usize
     ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
 
         let alphabet = seq_to_vec(alphabet)?;
@@ -203,9 +96,10 @@ impl NoLMBeamSearch {
             let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
             Err(err)
         } else {
-            bsearch::beam_search(
+            bsearch_ctc::beam_search_ctc(
                 unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
                 &alphabet,
+                alphabet_type.to_string(),
                 beam_width,
                 cutoff_prob,
                 alpha,
@@ -220,18 +114,76 @@ impl NoLMBeamSearch {
 }
 
 #[pyclass(unsendable)]
-struct DicoBeamSearch {
+struct BeamSearchRNNTNoLM {
+    server_address: String,
+    model_name: String,
+    num_rnn_layers: usize,
+    hidden_size: usize
+}
+
+#[pymethods]
+impl BeamSearchRNNTNoLM {
+
+    #[new]
+    fn new(server_address: &PyUnicode, model_name: &PyUnicode, num_rnn_layers: usize, hidden_size: usize) -> Self {
+        BeamSearchRNNTNoLM {
+            server_address: server_address.to_string(),
+            model_name: model_name.to_string(),
+            num_rnn_layers: num_rnn_layers,
+            hidden_size: hidden_size
+        }
+    }
+
+    pub fn beam_search(
+        &mut self,
+        encoder_output: &PyArray3<f32>,
+        alphabet: &PySequence,
+        alphabet_type: &PyUnicode,
+        beam_width: usize,
+        cutoff_prob: f32,
+        blank_id: usize,
+        sep_id: usize,
+        cls_id: usize
+    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
+
+        let alphabet = seq_to_vec(alphabet)?;
+        let mut audio_model = nemo_rnnt_audio_model::NemoRNNTAudioModel::load(&self.server_address, &self.model_name, unsafe { &encoder_output.as_array() },
+                                    self.num_rnn_layers, self.hidden_size, encoder_output.shape()[1], alphabet.len(), blank_id, sep_id);
+
+        if beam_width == 0 {
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
+        } else if cutoff_prob < -0.0 {
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
+        } else {
+            bsearch_rnnt::beam_search_rnnt(
+                RefCell::new(&mut audio_model), // PyReadonlyArray2 missing trait
+                &alphabet,
+                alphabet_type.to_string(),
+                beam_width,
+                cutoff_prob,
+                blank_id,
+                RefCell::new(None)
+            )
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct BeamSearchCTCDico {
     lm_model: dico_lm::DicoLanguageModel,
 }
 
 #[pymethods]
-impl DicoBeamSearch {
+impl BeamSearchCTCDico {
 
     #[new]
     fn new(dico_path: &PyUnicode) -> Self {
         let dico_path_str = dico_path.to_string();
 
-        DicoBeamSearch {
+        BeamSearchCTCDico {
             lm_model: dico_lm::DicoLanguageModel::load_from_files(&dico_path_str).unwrap(),
         }
     }
@@ -240,12 +192,14 @@ impl DicoBeamSearch {
         &mut self,
         network_output: &PyArray2<f32>,
         alphabet: &PySequence,
+        alphabet_type: &PyUnicode,
         beam_width: usize,
         cutoff_prob: f32,
         alpha: f32,
         beta: f32,
         blank_id: usize,
-        space_id: usize
+        space_id: usize,
+        sep_id: usize
     ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
 
         let alphabet = seq_to_vec(alphabet)?;
@@ -264,9 +218,77 @@ impl DicoBeamSearch {
             let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
             Err(err)
         } else {
-            bsearch::beam_search(
+            bsearch_ctc::beam_search_ctc(
                 unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
                 &alphabet,
+                alphabet_type.to_string(),
+                beam_width,
+                cutoff_prob,
+                alpha,
+                beta,
+                blank_id,
+                space_id,
+                RefCell::new(Some(&mut self.lm_model)),
+            )
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+struct BeamSearchCTCGPTRescoring {
+    lm_model: final_gpt_lm::GPTFinalLanguageModel,
+}
+
+#[pymethods]
+impl BeamSearchCTCGPTRescoring {
+
+    #[new]
+    fn new(server_address: &PyUnicode, model_name: &PyUnicode, vocab_path: &PyUnicode, merges_path: &PyUnicode, max_batch_size:usize, max_length:usize, num_tokens:usize) -> Self {
+        let server_address_str = server_address.to_string();
+        let model_name_str = model_name.to_string();
+        let vocab_path_str = vocab_path.to_string();
+        let merges_path_str = merges_path.to_string();
+
+        BeamSearchCTCGPTRescoring {
+            lm_model: final_gpt_lm::GPTFinalLanguageModel::load_from_files(&server_address_str, &model_name_str, &vocab_path_str, &merges_path_str, max_batch_size, max_length, num_tokens).unwrap(),
+        }
+    }
+
+    pub fn beam_search(
+        &mut self,
+        network_output: &PyArray2<f32>,
+        alphabet: &PySequence,
+        alphabet_type: &PyUnicode,
+        beam_width: usize,
+        cutoff_prob: f32,
+        alpha: f32,
+        beta: f32,
+        blank_id: usize,
+        space_id: usize,
+        sep_id: usize
+    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
+
+        let alphabet = seq_to_vec(alphabet)?;
+
+        if (alphabet.len() + 1) != network_output.shape()[1] {
+            let err: PyErr = PyValueError::new_err(format!(
+                "alphabet size {} does not match probability matrix inner dimension {}",
+                alphabet.len(),
+                network_output.shape()[1]
+            ));
+            Err(err)
+        } else if beam_width == 0 {
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
+        } else if cutoff_prob < -0.0 {
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
+        } else {
+            bsearch_ctc::beam_search_ctc(
+                unsafe { &network_output.as_array() }, // PyReadonlyArray2 missing trait
+                &alphabet,
+                alphabet_type.to_string(),
                 beam_width,
                 cutoff_prob,
                 alpha,
@@ -282,9 +304,10 @@ impl DicoBeamSearch {
 
 #[pymodule]
 fn rustlm(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<GPT2BeamSearch>()?;
-    m.add_class::<NoLMBeamSearch>()?;
-    m.add_class::<DicoBeamSearch>()?;
+    m.add_class::<BeamSearchCTCNoLM>()?;
+    m.add_class::<BeamSearchCTCDico>()?;
+    m.add_class::<BeamSearchCTCGPTRescoring>()?;
+    m.add_class::<BeamSearchRNNTNoLM>()?;
     //m.add_wrapped(wrap_pyfunction!(beam_search))?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
