@@ -1,10 +1,14 @@
 clean:
 	rm -rf *~ dist *.egg-info build target
+	$(MAKE) clean -C submodules/triton-rust/src/shared_memory
 
 release:
 	maturin build --release --manylinux=off
 
-build:
+dependencies:
+	$(MAKE) -C submodules/triton-rust/src/shared_memory
+
+build: dependencies
 	maturin build --manylinux=off
 
 develop:
