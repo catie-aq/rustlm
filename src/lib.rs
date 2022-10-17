@@ -302,11 +302,78 @@ impl BeamSearchCTCGPTRescoring {
     }
 }
 
+#[pyclass(unsendable)]
+struct BeamSearchRNNTGPTRescoring {
+    lm_model: final_gpt_lm::GPTFinalLanguageModel,
+    server_address: String,
+    model_name: String,
+    num_rnn_layers: usize,
+    hidden_size: usize
+}
+
+#[pymethods]
+impl BeamSearchRNNTGPTRescoring {
+
+    #[new]
+    fn new(server_address: &PyUnicode, model_name: &PyUnicode, num_rnn_layers: usize, hidden_size: usize,
+    lm_model_name: &PyUnicode, vocab_path: &PyUnicode, merges_path: &PyUnicode, max_batch_size:usize, max_length:usize,
+    num_tokens:usize) -> Self {
+        BeamSearchRNNTGPTRescoring {
+
+            server_address: server_address.to_string(),
+            model_name: model_name.to_string(),
+            num_rnn_layers: num_rnn_layers,
+            hidden_size: hidden_size,
+            lm_model: final_gpt_lm::GPTFinalLanguageModel::load_from_files(&server_address.to_string(), &(lm_model_name.to_string()), &vocab_path.to_string(), &merges_path.to_string(), max_batch_size, max_length, num_tokens).unwrap(),
+
+        }
+
+    }
+
+     pub fn beam_search(
+        &mut self,
+        encoder_output: &PyArray3<f32>,
+        alphabet: &PySequence,
+        alphabet_type: &PyUnicode,
+        beam_width: usize,
+        cutoff_prob: f32,
+        blank_id: usize,
+        sep_id: usize,
+        cls_id: usize
+    ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
+
+        let alphabet = seq_to_vec(alphabet)?;
+        let mut audio_model = nemo_rnnt_audio_model::NemoRNNTAudioModel::load(&self.server_address, &self.model_name, unsafe { &encoder_output.as_array() },
+                                    self.num_rnn_layers, self.hidden_size, encoder_output.shape()[1], alphabet.len(), blank_id, sep_id);
+
+        if beam_width == 0 {
+            let err: PyErr = PyValueError::new_err("Beam_width cannot be 0");
+            Err(err)
+        } else if cutoff_prob < -0.0 {
+            let err: PyErr = PyValueError::new_err("Cutoff_prob must be at least 0.0");
+            Err(err)
+        } else {
+            bsearch_rnnt::beam_search_rnnt(
+                RefCell::new(&mut audio_model), // PyReadonlyArray2 missing trait
+                &alphabet,
+                alphabet_type.to_string(),
+                beam_width,
+                cutoff_prob,
+                blank_id,
+                RefCell::new(Some(&mut self.lm_model)),
+            )
+            .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))
+        }
+    }
+
+}
+
 #[pymodule]
 fn rustlm(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<BeamSearchCTCNoLM>()?;
     m.add_class::<BeamSearchCTCDico>()?;
     m.add_class::<BeamSearchCTCGPTRescoring>()?;
+    m.add_class::<BeamSearchRNNTGPTRescoring>()?;
     m.add_class::<BeamSearchRNNTNoLM>()?;
     //m.add_wrapped(wrap_pyfunction!(beam_search))?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

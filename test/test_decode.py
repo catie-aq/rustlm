@@ -5,6 +5,12 @@ import numpy as np
 from unittest import TestCase, main
 from rustlm import *
 
+
+TRITON_URI="http://0.0.0.0:7001"
+TRITON_URI="http://localhost:8001"
+DECODER_MACARENA="decoder_macarena"
+DECODER_MACARENA="Decoder"
+
 class Test1DBeamSearch(TestCase):
     def setUp(self):
         self.beam_width = 16
@@ -36,7 +42,7 @@ class Test1DBeamSearch(TestCase):
             return
 
         print("GPT2 Test.")
-        gpt2_beam_search = BeamSearchCTCGPTRescoring("http://0.0.0.0:7001", "distilcamembert", "french_tokenizer-vocab.json", "french_tokenizer-merges.txt", 16, 512, 32005);
+        gpt2_beam_search = BeamSearchCTCGPTRescoring(TRITON_URI, "distilcamembert", "french_tokenizer-vocab.json", "french_tokenizer-merges.txt", 16, 512, 32005);
         seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, "characters", self.beam_width, self.cutoff_prob, 0.5, 0.0, len(self.alphabet), self.alphabet.index(" "), 0)
         print(seqs)
         print(prbs)
@@ -64,11 +70,21 @@ class Test1DBeamSearch(TestCase):
     def test_nolm_rnnt_beam_search(self):
         """ simple beam search test with the canonical alphabet """
         print("NoLM RNNT Test.")
-        nolm_beam_search_rnnt = BeamSearchRNNTNoLM("http://0.0.0.0:7001", "decoder_macarena", 1, 640)
+        nolm_beam_search_rnnt = BeamSearchRNNTNoLM(TRITON_URI, DECODER_MACARENA, 1, 640)
         seqs, paths, prbs = nolm_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 6, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
         print(seqs)
         print(prbs)
 
+    def test_gpt2_rnnt_beam_search(self):
+        """ simple beam search test with the canonical alphabet """
+        print("GPT2 RNNT Test.")
+
+        gpt2_beam_search_rnnt = BeamSearchRNNTGPTRescoring(TRITON_URI, DECODER_MACARENA, 1, 640, "distilcamembert",
+                                                           "french_tokenizer-vocab.json", "french_tokenizer-merges.txt",
+                                                           16, 512, 32005)
+        seqs, paths, prbs = gpt2_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 6, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
+        print(seqs)
+        print(prbs)
 
 
 if __name__ == '__main__':
