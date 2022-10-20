@@ -32,5 +32,3 @@ pip install target/wheels/rustlm-0.2.0-cp38-cp38-linux_x86_64.whl
 - Support both inference during beam and final inference rescoring (switch needed)
 - Improve performances
 
-downgrade pyo3 for python3.6 compatibility on Xavier
-cargo install --version 0.14.0 pyo3
