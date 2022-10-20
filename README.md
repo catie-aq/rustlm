@@ -32,3 +32,9 @@ pip install target/wheels/rustlm-0.2.0-cp38-cp38-linux_x86_64.whl
 - Support both inference during beam and final inference rescoring (switch needed)
 - Improve performances
 
+## Older builds
+For python3.6 on jetson Xavier
+```bash
+numpy = "0.15.1"
+pyo3 = { version = "=0.15.0", features = ["extension-module"] }
+```
