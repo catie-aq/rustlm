@@ -20,7 +20,7 @@ mod dico_lm;
 mod fast_math;
 mod audio_model;
 mod token_to_string;
-mod final_gpt_lm;
+mod final_causal_lm;
 mod nemo_rnnt_audio_model;
 
 #[derive(Clone, Copy, Debug)]
@@ -236,22 +236,20 @@ impl BeamSearchCTCDico {
 }
 
 #[pyclass(unsendable)]
-struct BeamSearchCTCGPTRescoring {
-    lm_model: final_gpt_lm::GPTFinalLanguageModel,
+struct BeamSearchCTCCausalLMRescoring {
+    lm_model: final_causal_lm::CausalLMFinalLanguageModel,
 }
 
 #[pymethods]
-impl BeamSearchCTCGPTRescoring {
+impl BeamSearchCTCCausalLMRescoring {
 
     #[new]
-    fn new(server_address: &PyUnicode, model_name: &PyUnicode, vocab_path: &PyUnicode, merges_path: &PyUnicode, max_batch_size:usize, max_length:usize, num_tokens:usize) -> Self {
+    fn new(server_address: &PyUnicode, model_name: &PyUnicode, max_batch_size:usize, max_length:usize, num_tokens:usize) -> Self {
         let server_address_str = server_address.to_string();
         let model_name_str = model_name.to_string();
-        let vocab_path_str = vocab_path.to_string();
-        let merges_path_str = merges_path.to_string();
 
-        BeamSearchCTCGPTRescoring {
-            lm_model: final_gpt_lm::GPTFinalLanguageModel::load_from_files(&server_address_str, &model_name_str, &vocab_path_str, &merges_path_str, max_batch_size, max_length, num_tokens).unwrap(),
+        BeamSearchCTCCausalLMRescoring {
+            lm_model: final_gpt_lm::CausalLMFinalLanguageModel::load_from_files(&server_address_str, &model_name_str, max_batch_size, max_length, num_tokens).unwrap(),
         }
     }
 
@@ -303,8 +301,8 @@ impl BeamSearchCTCGPTRescoring {
 }
 
 #[pyclass(unsendable)]
-struct BeamSearchRNNTGPTRescoring {
-    lm_model: final_gpt_lm::GPTFinalLanguageModel,
+struct BeamSearchRNNTCausalLMRescoring {
+    lm_model: final_gpt_lm::CausalLMFinalLanguageModel,
     server_address: String,
     model_name: String,
     num_rnn_layers: usize,
@@ -312,19 +310,19 @@ struct BeamSearchRNNTGPTRescoring {
 }
 
 #[pymethods]
-impl BeamSearchRNNTGPTRescoring {
+impl BeamSearchRNNTCausalLMRescoring {
 
     #[new]
     fn new(server_address: &PyUnicode, model_name: &PyUnicode, num_rnn_layers: usize, hidden_size: usize,
-    lm_model_name: &PyUnicode, vocab_path: &PyUnicode, merges_path: &PyUnicode, max_batch_size:usize, max_length:usize,
+    lm_model_name: &PyUnicode, max_batch_size:usize, max_length:usize,
     num_tokens:usize) -> Self {
-        BeamSearchRNNTGPTRescoring {
+        BeamSearchRNNTCausalLMRescoring {
 
             server_address: server_address.to_string(),
             model_name: model_name.to_string(),
             num_rnn_layers: num_rnn_layers,
             hidden_size: hidden_size,
-            lm_model: final_gpt_lm::GPTFinalLanguageModel::load_from_files(&server_address.to_string(), &(lm_model_name.to_string()), &vocab_path.to_string(), &merges_path.to_string(), max_batch_size, max_length, num_tokens).unwrap(),
+            lm_model: final_gpt_lm::CausalLMFinalLanguageModel::load_from_files(&server_address.to_string(), &lm_model_name.to_string(), max_batch_size, max_length, num_tokens).unwrap(),
 
         }
 
@@ -372,8 +370,8 @@ impl BeamSearchRNNTGPTRescoring {
 fn rustlm(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<BeamSearchCTCNoLM>()?;
     m.add_class::<BeamSearchCTCDico>()?;
-    m.add_class::<BeamSearchCTCGPTRescoring>()?;
-    m.add_class::<BeamSearchRNNTGPTRescoring>()?;
+    m.add_class::<BeamSearchCTCCausalLMRescoring>()?;
+    m.add_class::<BeamSearchRNNTCausalLMRescoring>()?;
     m.add_class::<BeamSearchRNNTNoLM>()?;
     //m.add_wrapped(wrap_pyfunction!(beam_search))?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

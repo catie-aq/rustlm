@@ -34,15 +34,10 @@ class Test1DBeamSearch(TestCase):
         feats = np.load("encoded_rnnt.npy")
         return feats
 
-    def test_gpt2_ctc_beam_search(self):
+    def test_gpt_ctc_beam_search(self):
         """ gpt based beam search test with the canonical alphabet """
-        # assume that file are in the test directory
-        if (not os.path.isfile('french_tokenizer-vocab.json')) or (not os.path.isfile('french_tokenizer-merges.txt')):
-            print("GPT2 test diasabled - files not found.")
-            return
-
         print("GPT2 Test.")
-        gpt2_beam_search = BeamSearchCTCGPTRescoring(TRITON_URI, "distilcamembert", "french_tokenizer-vocab.json", "french_tokenizer-merges.txt", 16, 512, 32005);
+        gpt2_beam_search = BeamSearchCTCCausalLMRescoring(TRITON_URI, "gpt-fr-cased-small", 16, 512, 32005);
         seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, "characters", self.beam_width, self.cutoff_prob, 0.5, 0.0, len(self.alphabet), self.alphabet.index(" "), 0)
         print(seqs)
         print(prbs)
@@ -75,12 +70,11 @@ class Test1DBeamSearch(TestCase):
         print(seqs)
         print(prbs)
 
-    def test_gpt2_rnnt_beam_search(self):
+    def test_gpt_rnnt_beam_search(self):
         """ simple beam search test with the canonical alphabet """
         print("GPT2 RNNT Test.")
 
-        gpt2_beam_search_rnnt = BeamSearchRNNTGPTRescoring(TRITON_URI, DECODER_MACARENA, 1, 640, "distilcamembert",
-                                                           "french_tokenizer-vocab.json", "french_tokenizer-merges.txt",
+        gpt2_beam_search_rnnt = BeamSearchRNNTCausalLMRescoring(TRITON_URI, DECODER_MACARENA, 1, 640, "gpt-fr-cased-small",
                                                            16, 512, 32005)
         seqs, paths, prbs = gpt2_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 6, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
         print(seqs)

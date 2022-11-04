@@ -13,7 +13,7 @@ use triton_rust::inference::model_infer_request::{InferInputTensor, InferRequest
 use triton_rust::system_shared_memory::SystemSharedMemoryRegionHandle;
 
 
-pub struct GPTFinalLanguageModel {
+pub struct CausalLMFinalLanguageModel {
     model_name: String,
     triton_inferer: TritonInference,
     tokenizer: Tokenizer,
@@ -25,16 +25,13 @@ pub struct GPTFinalLanguageModel {
     model_output_size: usize,
 }
 
-impl GPTFinalLanguageModel {
-    pub fn load_from_files(server_address: &str, model_name: &str, vocab_path: &str, merges_path: &str, max_batch_size: usize, max_length: usize, model_output_size: usize) -> Result<GPTFinalLanguageModel, Box<dyn Error + Send + Sync>> {
+impl CausalLMFinalLanguageModel {
+    pub fn load_from_files(server_address: &str, model_name: &str, max_batch_size: usize, max_length: usize, model_output_size: usize) -> Result<GPTFinalLanguageModel, Box<dyn Error + Send + Sync>> {
 
         let server_add_str: &'static str = Box::leak(server_address.to_string().into_boxed_str());
         let mut triton_inferer = TritonInference::connect(&server_add_str).unwrap();
 
-        let bpe_builder = BPE::from_file(vocab_path, merges_path);
-        let bpe = bpe_builder.build().unwrap();
-
-        let mut tokenizer = Tokenizer::new(bpe);
+        let mut tokenizer = Tokenizer::from_pretrained(self.model_name, None).unwrap();
 
         /* Create shared memory zones */
         triton_inferer.unregister_system_shared_memory("input_ids_data").unwrap();
@@ -58,7 +55,7 @@ impl GPTFinalLanguageModel {
     }
 }
 
-impl LanguageModel for GPTFinalLanguageModel {
+impl LanguageModel for CausalLMFinalLanguageModel {
 
     fn get_sentence_likelihood(&mut self, input: Vec<String>) -> Result<Vec<f32>, Box<dyn Error + Send + Sync>> {
         /* Tokenize sentences */
@@ -102,7 +99,7 @@ impl LanguageModel for GPTFinalLanguageModel {
         let output_params = self.triton_inferer.get_system_shared_memory_params("output_data", size_of_output, 0);
         infer_outputs.push(self.triton_inferer.get_infer_output("logits", output_params));
 
-        let response  = self.triton_inferer.infer("distilcamembert", "1", "25", infer_inputs, infer_outputs, Vec::<Vec<u8>>::new()).unwrap();
+        let response  = self.triton_inferer.infer(self.model_name, "1", "25", infer_inputs, infer_outputs, Vec::<Vec<u8>>::new()).unwrap();
 
         let output_class: Vec<f32> = self.output_mem.get_data(size_of_output, 0);
         let array_nd = Array::from_iter(output_class.into_iter()).into_shape((batch_size, max_length, self.model_output_size)).unwrap();
