@@ -3,7 +3,6 @@ use ndarray::{ArrayBase, Data, Ix2};
 use std::collections::BTreeMap;
 use crate::tree::{SuffixTree, ROOT_NODE};
 use crate::language_model::{LanguageModel, LMType};
-use crate::fast_math::{fast_exp, logsumexp, fast_log, logsumexp_2};
 use crate::token_to_string::token_to_string;
 use std::cell::RefCell;
 use std::cmp::Ordering;

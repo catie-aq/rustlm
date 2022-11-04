@@ -1,11 +1,10 @@
-use ndarray::{Array, Array2, Dim, Axis};
+use ndarray::{Array, Array2, Axis};
 use crate::language_model::{LanguageModel, LMType};
 use std::unimplemented;
-use std::{fs::File, io::{BufRead, BufReader}, error::Error, boxed::Box};
+use std::{error::Error, boxed::Box};
 
 extern crate tokenizers;
-use tokenizers::{Tokenizer};
-use tokenizers::models::bpe::BPE;
+use tokenizers::tokenizer::Tokenizer;
 
 extern crate triton_rust;
 use triton_rust::TritonInference;
@@ -26,12 +25,12 @@ pub struct CausalLMFinalLanguageModel {
 }
 
 impl CausalLMFinalLanguageModel {
-    pub fn load_from_files(server_address: &str, model_name: &str, max_batch_size: usize, max_length: usize, model_output_size: usize) -> Result<GPTFinalLanguageModel, Box<dyn Error + Send + Sync>> {
+    pub fn load_from_files(server_address: &str, model_name: &str, max_batch_size: usize, max_length: usize, model_output_size: usize) -> Result<CausalLMFinalLanguageModel, Box<dyn Error + Send + Sync>> {
 
         let server_add_str: &'static str = Box::leak(server_address.to_string().into_boxed_str());
         let mut triton_inferer = TritonInference::connect(&server_add_str).unwrap();
 
-        let mut tokenizer = Tokenizer::from_pretrained(self.model_name, None).unwrap();
+        let mut tokenizer = Tokenizer::from_pretrained("bert-base-cased", None).unwrap();
 
         /* Create shared memory zones */
         triton_inferer.unregister_system_shared_memory("input_ids_data").unwrap();
@@ -41,7 +40,7 @@ impl CausalLMFinalLanguageModel {
         let system_mem_zone_mask = triton_inferer.create_system_shared_memory("attention_mask_data", "/attention_mask_data", (max_length*8) as u64).unwrap();
         let system_mem_zone_output = triton_inferer.create_system_shared_memory("output_data", "/output_data", (max_length*8*model_output_size) as u64).unwrap();
 
-        Ok(GPTFinalLanguageModel {
+        Ok(CausalLMFinalLanguageModel {
             model_name: model_name.to_string(),
             triton_inferer: triton_inferer,
             tokenizer: tokenizer,
@@ -99,7 +98,7 @@ impl LanguageModel for CausalLMFinalLanguageModel {
         let output_params = self.triton_inferer.get_system_shared_memory_params("output_data", size_of_output, 0);
         infer_outputs.push(self.triton_inferer.get_infer_output("logits", output_params));
 
-        let response  = self.triton_inferer.infer(self.model_name, "1", "25", infer_inputs, infer_outputs, Vec::<Vec<u8>>::new()).unwrap();
+        let response  = self.triton_inferer.infer(&self.model_name, "1", "25", infer_inputs, infer_outputs, Vec::<Vec<u8>>::new()).unwrap();
 
         let output_class: Vec<f32> = self.output_mem.get_data(size_of_output, 0);
         let array_nd = Array::from_iter(output_class.into_iter()).into_shape((batch_size, max_length, self.model_output_size)).unwrap();

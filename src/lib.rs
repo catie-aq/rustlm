@@ -249,7 +249,7 @@ impl BeamSearchCTCCausalLMRescoring {
         let model_name_str = model_name.to_string();
 
         BeamSearchCTCCausalLMRescoring {
-            lm_model: final_gpt_lm::CausalLMFinalLanguageModel::load_from_files(&server_address_str, &model_name_str, max_batch_size, max_length, num_tokens).unwrap(),
+            lm_model: final_causal_lm::CausalLMFinalLanguageModel::load_from_files(&server_address_str, &model_name_str, max_batch_size, max_length, num_tokens).unwrap(),
         }
     }
 
@@ -302,7 +302,7 @@ impl BeamSearchCTCCausalLMRescoring {
 
 #[pyclass(unsendable)]
 struct BeamSearchRNNTCausalLMRescoring {
-    lm_model: final_gpt_lm::CausalLMFinalLanguageModel,
+    lm_model: final_causal_lm::CausalLMFinalLanguageModel,
     server_address: String,
     model_name: String,
     num_rnn_layers: usize,
@@ -322,7 +322,7 @@ impl BeamSearchRNNTCausalLMRescoring {
             model_name: model_name.to_string(),
             num_rnn_layers: num_rnn_layers,
             hidden_size: hidden_size,
-            lm_model: final_gpt_lm::CausalLMFinalLanguageModel::load_from_files(&server_address.to_string(), &lm_model_name.to_string(), max_batch_size, max_length, num_tokens).unwrap(),
+            lm_model: final_causal_lm::CausalLMFinalLanguageModel::load_from_files(&server_address.to_string(), &lm_model_name.to_string(), max_batch_size, max_length, num_tokens).unwrap(),
 
         }
 

@@ -14,7 +14,7 @@ pyo3 = { version = "0.16.5", features = ["extension-module"] }
 ndarray = { version = "0.15.6", features = ["blas", "rayon"] }
 rayon = "1.5.3"
 patricia_tree = { version = "0.3.1" }
-tokenizers = { path = "submodules/tokenizers/tokenizers" }
+tokenizers = { git = "https://github.com/huggingface/tokenizers" }
 permutation = {git = "https://github.com/jeremysalwen/rust-permutations"}
 triton-rust = {path = "submodules/triton-rust/"}
 

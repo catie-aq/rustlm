@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2};
+use ndarray::{Array1};
 use std::marker::{Send, Sync};
 use std::error::Error;
 

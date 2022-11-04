@@ -1,6 +1,3 @@
-[submodule "submodules/tokenizers"]
-	path = submodules/tokenizers
-	url = https://github.com/huggingface/tokenizers.git
 [submodule "submodules/triton-rust"]
 	path = submodules/triton-rust
 	url = https://github.com/catie-aq/triton-rust.git
