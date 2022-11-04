@@ -3,5 +3,4 @@
 	url = https://github.com/huggingface/tokenizers.git
 [submodule "submodules/triton-rust"]
 	path = submodules/triton-rust
-	url = url = https://github.com/catie-aq/triton-rust.git
-
+	url = https://github.com/catie-aq/triton-rust.git
