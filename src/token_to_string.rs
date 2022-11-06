@@ -35,7 +35,12 @@ pub fn token_to_string(input: Vec<String>, alphabet_type: &String) -> Result<Str
                 }
             }
         }
-        Ok(vec_str[1..].to_string()) // remove first character because of initial space
+        if vec_str.is_empty(){
+            Ok(vec_str.to_string())
+        }
+        else{
+            Ok(vec_str[1..].to_string()) // remove first character because of initial space
+        }
     } else {
         return Err(AlphabetError::UnknownAlphabet);
     }
