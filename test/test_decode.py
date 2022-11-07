@@ -6,10 +6,8 @@ from unittest import TestCase, main
 from rustlm import *
 
 
-TRITON_URI="http://0.0.0.0:7001"
-TRITON_URI="http://localhost:8001"
+TRITON_URI="http://localhost:7001"
 DECODER_MACARENA="decoder_macarena"
-DECODER_MACARENA="Decoder"
 
 class Test1DBeamSearch(TestCase):
     def setUp(self):
@@ -37,7 +35,7 @@ class Test1DBeamSearch(TestCase):
     def test_gpt_ctc_beam_search(self):
         """ gpt based beam search test with the canonical alphabet """
         print("GPT2 Test.")
-        gpt2_beam_search = BeamSearchCTCCausalLMRescoring(TRITON_URI, "gpt-fr-cased-small", 16, 512, 32005);
+        gpt2_beam_search = BeamSearchCTCCausalLMRescoring(TRITON_URI, "gpt-fr-cased-small", 16, 512, 50000);
         seqs, paths, prbs = gpt2_beam_search.beam_search(self.probs, self.alphabet, "characters", self.beam_width, self.cutoff_prob, 0.5, 0.0, len(self.alphabet), self.alphabet.index(" "), 0)
         print(seqs)
         print(prbs)
@@ -75,7 +73,7 @@ class Test1DBeamSearch(TestCase):
         print("GPT2 RNNT Test.")
 
         gpt2_beam_search_rnnt = BeamSearchRNNTCausalLMRescoring(TRITON_URI, DECODER_MACARENA, 1, 640, "gpt-fr-cased-small",
-                                                           16, 512, 32005)
+                                                           16, 512, 50000)
         seqs, paths, prbs = gpt2_beam_search_rnnt.beam_search(self.rnnt_encoded, self.rnnt_alphabet, "wordpiece", 6, self.cutoff_prob, 512, self.rnnt_alphabet.index("[SEP]"), self.rnnt_alphabet.index("[CLS]"))
         print(seqs)
         print(prbs)
