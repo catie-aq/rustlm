@@ -1,6 +1,6 @@
 [package]
 name = "rustlm"
-version = "0.5.0"
+version = "0.6.1"
 authors = ["Boris Albar <b.albar@catie.fr"]
 edition = "2018"
 

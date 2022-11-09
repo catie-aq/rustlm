@@ -142,8 +142,7 @@ impl BeamSearchRNNTNoLM {
         beam_width: usize,
         cutoff_prob: f32,
         blank_id: usize,
-        sep_id: usize,
-        cls_id: usize
+        sep_id: usize
     ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
 
         let alphabet = seq_to_vec(alphabet)?;
@@ -336,8 +335,7 @@ impl BeamSearchRNNTCausalLMRescoring {
         beam_width: usize,
         cutoff_prob: f32,
         blank_id: usize,
-        sep_id: usize,
-        cls_id: usize
+        sep_id: usize
     ) -> PyResult<(Vec<String>, Vec<Vec<usize>>, Vec<f32>)> {
 
         let alphabet = seq_to_vec(alphabet)?;
