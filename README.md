@@ -15,7 +15,7 @@ rustup default nightly
 ## Installation
 
 ```bash
-git clone https://gitlab.com/sido/asr/rustlm.git --recursive
+git clone https://github.com:catie-aq/rustlm.git --recursive
 cd rustlm
 make build
 pip install target/wheels/rustlm-0.2.0-cp38-cp38-linux_x86_64.whl
