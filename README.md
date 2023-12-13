@@ -1,4 +1,4 @@
-RustLM : An efficient Rust CTC Decoder supporting external language models
+# RustLM : An efficient Rust CTC Decoder supporting external language models
 
 This an efficient CTC Decoder supporting external language models scorer (Neural models in onnx format, KenLM and dictionnaries as a radix-tree)
 
